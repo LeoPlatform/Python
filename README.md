@@ -3,11 +3,20 @@ LeoPlatform/Python
 
 Leo Python SDK
 
-A php interface to interact with the Leo Platform
+A Python interface to interact with the Leo Platform
 
 Documentation: https://docs.leoplatform.io
 
-Contributing
+Python versions supported: 3.6
+
+Installation
 ============
 
-We have not yet gotten around to this SDK.  If you would like to contribute, you can follow port our [Nodejs SDK](https://github.com/LeoPlatform/NodeJS) and submit a pull request.
+# make sure the awscli is installed:
+https://docs.aws.amazon.com/cli/latest/userguide/installing.html
+# and configured:
+https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html
+
+#Install the boto3 
+pip3.6 install boto3
+
