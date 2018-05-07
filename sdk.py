@@ -2,8 +2,8 @@
 
 import boto3
 import json
-from lib import dynamodb
-from lib.payload import Payload
+from library import dynamodb
+from library.payload import Payload
 
 
 class Sdk:
