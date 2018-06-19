@@ -1,0 +1,9 @@
+{
+	"aws_profile": "rentdynamics",
+	"source": "python",
+	"destination": "python-queue",
+	"name": "Python Loader",
+	"config": {
+		"uploader": "kinesis"
+	}
+}

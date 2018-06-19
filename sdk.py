@@ -2,26 +2,61 @@
 
 import boto3
 import json
-from library import dynamodb
 from library.payload import Payload
+from library.array import Array
 
 
 class Sdk:
-	def __init__(self):
-		self.config = {}
+	def __init__(self, id, opts):
+		array = Array()
+		self.config = array.defaults({
+			'region': 'us-west-2',
+			'firehose': None,
+			'kinesis': None,
+			's3': None,
+			'enableLogging': False,
+			'uploader': 'kinesis',
+			'debug': True
+		}, opts)
+
+		self.id = id
 		self.session = None
 
 		self.configuration()
 
 	def configuration(self):
 		# load the config file
-		self.config = json.load(open('config.json'))
+		# self.config = json.load(open('config.json'))
 
 		# set the AWS profile (should be set in the config file)
 		self.session = boto3.Session(profile_name=self.config['aws_profile'])
 
+		self.create_loader(self.config)
 		print(self.session)
-	# ddb = dynamodb(session)
+
+	def create_loader(self, checkpointer, opts = {}):
+		if 'config' in opts:
+			array = Array()
+			opts['config'] = array.defaults(self.config, opts['config'])
+
+		if opts['config']['uploader'] == 'firehose':
+			from library.firehose import Firehose
+			uploader = Firehose(self.id, opts)
+		elif opts['config']['uploader'] == 'kinesis':
+			from library.kinesis import Kinesis
+			uploader = Kinesis(self.id, opts)
+
+		from library.massuploader import Massuploader
+		massuploader = Massuploader(self.id, opts, uploader)
+
+		from library.combiner import Combiner
+		return Combiner(self.id, opts, uploader, massuploader, checkpointer)
+
+	def create_offloader(self, opts):
+		print('Not implemented yet')
+
+	def create_enrichment(self, opts):
+		print('Not implemented yet')
 
 	def create_payload(self):
 		p = Payload()
