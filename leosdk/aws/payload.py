@@ -11,9 +11,10 @@ class Payload:
         self.end = 0
         self.units = 0
         self.source = ''
-        self.id = 0
+        self.payload_id = ''
         self.event = ''
         self.eventSourceTimestamp = 0
+        self.now = round(time.time() * 1000)
 
     def get_payload_data(self):
         return json.dumps({
@@ -28,12 +29,9 @@ class Payload:
             'id': self.get_id(),
             'event': self.get_event(),
             'event_source_timestamp': self.get_event_source_timestamp(),
-            'timestamp': time.time()
-        })
+            'timestamp': self.now
+        }, separators=(',', ':')) + '\n'
 
-    #
-    # payload Object
-    #
     def set_payload(self, name, ids):
         if name in self.payloadObj:
             self.payloadObj[name] += ids
@@ -46,28 +44,19 @@ class Payload:
         else:
             return self.payloadObj[name] if name else self.payloadObj
 
-    #
-    # start
-    #
-    def set_start(self, start):
+    def set_start(self, start: int):
         self.start = start
 
-    def get_start(self):
+    def get_start(self) -> int:
         return self.start
 
-    #
-    # end
-    #
-    def set_end(self, end):
+    def set_end(self, end: int):
         self.end = end
 
-    def get_end(self):
+    def get_end(self) -> int:
         return self.end
 
-    #
-    # units
-    #
-    def set_units(self, units):
+    def set_units(self, units: int):
         self.units = units
 
     def get_units(self):
@@ -79,50 +68,35 @@ class Payload:
     def decrement_units(self):
         self.units -= 1
 
-    def increase_units(self, amount):
+    def increase_units(self, amount: int):
         self.units += amount
 
-    def decrease_units(self, amount):
+    def decrease_units(self, amount: int):
         self.units -= amount
 
-    #
-    # source
-    #
-    def set_source(self, source):
+    def set_source(self, source: str):
         self.source = source
 
-    def get_source(self):
+    def get_source(self) -> str:
         return self.source
 
-    #
-    # id
-    #
-    def set_id(self, id):
-        self.id = id
+    def set_id(self, payload_id: str):
+        self.payload_id = payload_id
 
-    def get_id(self):
-        return self.id
+    def get_id(self) -> str:
+        return self.payload_id
 
-    #
-    # event
-    #
-    def set_event(self, event):
+    def set_event(self, event: str):
         self.event = event
 
-    def get_event(self):
+    def get_event(self) -> str:
         return self.event
 
-    #
-    # event_source_timestamp
-    #
-    def set_event_source_timestamp(self, eventSourceTimestamp):
-        self.eventSourceTimestamp = eventSourceTimestamp if eventSourceTimestamp else time.time()
+    def set_event_source_timestamp(self, event_source_timestamp: int):
+        self.eventSourceTimestamp = event_source_timestamp if event_source_timestamp else self.now
 
-    def get_event_source_timestamp(self):
-        return self.eventSourceTimestamp if self.eventSourceTimestamp else time.time()
+    def get_event_source_timestamp(self) -> int:
+        return self.eventSourceTimestamp if self.eventSourceTimestamp else self.now
 
-    #
-    # eid
-    #
-    def get_eid(self):
-        return datetime.datetime.now().strftime('z/%Y/%m/%d/%H/%M/%S/') + str(int(time.time())) + '-0000000'
+    def get_eid(self) -> str:
+        return datetime.datetime.fromtimestamp(self.now / 1000).strftime('z/%Y/%m/%d/%H/%M/%S/%%d-0000000') % self.now

@@ -1,4 +1,5 @@
 import boto3
+from boto3 import Session
 
 from leosdk.aws.cfg import Cfg
 from leosdk.aws.leo_stream import LeoStream
@@ -13,7 +14,7 @@ class Leo:
     def load(self) -> LeoStream:
         return self.__loader()
 
-    def __loader(self):
+    def __loader(self) -> LeoStream:
         writer_style = Leo.__writer_style(self.config)
         if writer_style == 'BATCH':
             from leosdk.aws.firehose import Firehose
@@ -23,16 +24,16 @@ class Leo:
             return S3(self.config)
         else:
             from leosdk.aws.kinesis import Kinesis
-            return Kinesis(self.config)
+            return Kinesis(self.config, self.bot_id, self.queue_name)
 
     @staticmethod
-    def __aws_session(config):
+    def __aws_session(config) -> Session:
         profile = config.value('AWS_PROFILE')
         region = config.value('REGION')
         return boto3.Session(profile_name=profile, region_name=region)
 
     @staticmethod
-    def __writer_style(config):
+    def __writer_style(config) -> str:
         uploader = config.value('WRITER')
         if uploader == 'BATCH' or uploader == 'STORAGE':
             return uploader
@@ -40,7 +41,7 @@ class Leo:
             return 'STREAM'
 
     @staticmethod
-    def __writer_resource(config, writer_style):
+    def __writer_resource(config, writer_style) -> str:
         writer_resource = config.value(writer_style)
         if writer_resource is not None:
             return writer_resource

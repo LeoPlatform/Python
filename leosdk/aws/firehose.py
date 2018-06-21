@@ -1,6 +1,5 @@
 import time
 
-from aws.array import Array
 from leosdk.aws.cfg import Cfg
 from leosdk.aws.leo_stream import LeoStream
 from leosdk.aws.payload import Payload
@@ -8,21 +7,23 @@ from leosdk.aws.payload import Payload
 
 class Firehose(LeoStream):
 
-    def __init__(self, config: Cfg):
-        array = Array()
-        self.id = nullid
-        self.region = region
-        self.client = session.client('firehose')
-        self.stream = stream
+    def __init__(self, config: Cfg, bot_id: str, queue_name: str):
+        self.bot_id = bot_id
+        self.queue_name = queue_name
+        # array = Array()
+        # self.id = nullid
+        # self.region = region
+        # self.client = session.client('firehose')
+        # self.stream = stream
         self.combine = True
         self.batch_size = 3145728
         self.record_size = 734003
         self.max_records = 500
         self.duration = 100
         self.bytesPerSecond = 2097152
-        self.opts = array.defaults({
-            'maxRetries': 4
-        }, opts)
+        # self.opts = array.defaults({
+        #     'maxRetries': 4
+        # }, opts)
 
     def write(self, payload: Payload):
         pass
@@ -91,6 +92,7 @@ class Firehose(LeoStream):
                 'records': count
             }
 
-    @staticmethod
-    def end():
+    def end(self):
+        # if len(self.records) > 0:
+        #     self.send_records()
         print('end')
