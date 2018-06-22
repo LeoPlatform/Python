@@ -1,17 +1,6 @@
-# import boto3
+from leosdk.aws.cfg import Cfg
 
 
 class DynamoDB:
-    def __init__(session):
-        if (session):
-            self.session = session
-
-        self.instance = self.session.resource('DynamoDB')
-
-# def get():
-
-# def update():
-
-# def put():
-
-# def delete():
+    def __init__(self, config: Cfg):
+        self.cfg = config
