@@ -1,4 +1,3 @@
-import gzip
 import logging
 import sys
 import time
@@ -20,7 +19,7 @@ class Firehose(LeoStream):
     max_batch_records: int
     max_batch_age: int
     max_attempts: int
-    compressed_records: [dict]
+    batched_records: [dict]
 
     def __init__(self, config: Cfg, bot_id: str, queue_name: str):
         self.stream_name = config.value('BATCH')
@@ -30,24 +29,24 @@ class Firehose(LeoStream):
         self.queue_name = queue_name
 
         self.client = Firehose.__aws_session(config).client('firehose')
-        self.max_record_size = int(config.value_or_else('BATCH_MAX_RECORD_SIZE', str(1024 * 4900)))
-        self.max_batch_size = int(config.value_or_else('BATCH_MAX_BATCH_SIZE', str(1024 * 4900)))
-        self.max_batch_records = int(config.value_or_else('BATCH_MAX_BATCH_RECORDS', str(1000)))
-        self.max_batch_age = int(config.value_or_else('BATCH_MAX_BATCH_AGE', str(1000)))
-        self.max_attempts = int(config.value_or_else('BATCH_MAX_UPLOAD_ATTEMPTS', str(10)))
-        self.compressed_records = []
-        self.send_time = 0
+        self.max_record_size = config.int_value_or_else('BATCH_MAX_RECORD_SIZE', 1024 * 4900)
+        self.max_batch_size = config.int_value_or_else('BATCH_MAX_SIZE', 1024 * 4900)
+        self.max_batch_records = config.int_value_or_else('BATCH_MAX_RECORDS', 1000)
+        self.max_batch_age = config.int_value_or_else('BATCH_MAX_AGE', 1000)
+        self.max_attempts = config.int_value_or_else('BATCH_MAX_UPLOAD_ATTEMPTS', 10)
+        self.batched_records = []
+        self.send_time = round(time.time() * 1000)
 
     def write(self, payload: Payload):
-        compressed_payload = self.compress_rec(payload)
-        compressed_payload_size = sys.getsizeof(compressed_payload)
+        wrapped_payload = self.wrap_record(payload)
+        wrapped_payload_size = sys.getsizeof(wrapped_payload)
 
-        if self.exceeds_payload_size(compressed_payload_size):
+        if self.exceeds_payload_size(wrapped_payload_size):
             raise ValueError("Payload size is larger than %d bytes" % self.max_record_size)
 
-        if self.send_required(compressed_payload_size):
+        if self.send_required(wrapped_payload_size):
             self.send()
-        self.append_record(compressed_payload)
+        self.append_record(wrapped_payload)
 
     def end(self):
         self.send()
@@ -55,7 +54,7 @@ class Firehose(LeoStream):
 
     def send(self):
         attempts = 0
-        while len(self.compressed_records) > 0:
+        while len(self.batched_records) > 0:
             result = self.send_current(attempts)
             attempts += 1
             if result.get('FailedPutCount') == 0 or attempts >= self.max_attempts:
@@ -64,52 +63,51 @@ class Firehose(LeoStream):
             else:
                 self.log_failures(result)
 
-        self.compressed_records.clear()
-        self.send_time = time.time()
+        self.batched_records.clear()
+        self.send_time = round(time.time() * 1000)
 
     def send_current(self, attempts: int) -> {}:
         try:
             time.sleep(attempts * .1)
             return self.client.put_record_batch(
-                Records=self.compressed_records,
+                Records=self.batched_records,
                 DeliveryStreamName=self.stream_name
             )
         except ClientError:
-            return {'FailedPutCount': len(self.compressed_records)}
+            return {'FailedPutCount': len(self.batched_records)}
 
     def send_required(self, size: int) -> bool:
         return self.exceeds_batch_size(size) or self.exceeds_batch_age() or self.exceeds_batch_records()
 
-    def exceeds_payload_size(self, compressed_payload_size: int) -> bool:
-        return compressed_payload_size > self.max_record_size
+    def exceeds_payload_size(self, payload_size: int) -> bool:
+        return payload_size > self.max_record_size
 
-    def exceeds_batch_size(self, compressed_payload_size: int) -> bool:
-        batch_size = sys.getsizeof(self.compressed_records)
-        return batch_size + compressed_payload_size > self.max_batch_size
+    def exceeds_batch_size(self, payload_size: int) -> bool:
+        batch_size = sys.getsizeof(self.batched_records)
+        return batch_size + payload_size > self.max_batch_size
 
     def exceeds_batch_age(self) -> bool:
-        last_send = round(self.send_time * 1000)
         now = round(time.time() * 1000)
-        return last_send + self.max_batch_age < now
+        return now - self.send_time > self.max_batch_age
 
     def exceeds_batch_records(self) -> bool:
-        return len(self.compressed_records) >= self.max_batch_records
+        return len(self.batched_records) >= self.max_batch_records
 
-    def append_record(self, compressed_payload: {}):
-        self.compressed_records.append(compressed_payload)
+    def append_record(self, wrapped_payload: {}):
+        self.batched_records.append(wrapped_payload)
 
     def log_successes(self):
-        uploaded = len(self.compressed_records)
-        batch_size = sys.getsizeof(self.compressed_records)
+        uploaded = len(self.batched_records)
+        batch_size = sys.getsizeof(self.batched_records)
         plural = 's' if uploaded > 1 else ''
         logger.info(
-            "Uploaded %d compressed payload%s to Firehose with a total of %d bytes" % (uploaded, plural, batch_size))
+            "Uploaded %d payload%s to Firehose with a total of %d bytes" % (uploaded, plural, batch_size))
 
-    def compress_rec(self, payload: Payload) -> {}:
+    def wrap_record(self, payload: Payload) -> {}:
         payload.set_id(self.bot_id)
         payload.set_event(self.queue_name)
         return {
-            'Data': gzip.compress(bytes(payload.get_payload_data(), 'UTF-8'))
+            'Data': payload.get_payload_data()
         }
 
     @staticmethod
@@ -121,6 +119,8 @@ class Firehose(LeoStream):
     @staticmethod
     def log_failures(result: {}):
         recs = result.get('Records')
+        if not recs:
+            return
         for i in recs:
             code = recs[i].get('ErrorCode')
             if code:

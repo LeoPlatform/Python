@@ -30,13 +30,13 @@ class Kinesis(LeoStream):
         self.queue_name = queue_name
 
         self.client = Kinesis.__aws_session(config).client('kinesis')
-        self.max_record_size = int(config.value_or_else('STREAM_MAX_RECORD_SIZE', str(1024 * 900)))
-        self.max_batch_size = int(config.value_or_else('STREAM_MAX_BATCH_SIZE', str(1024 * 900)))
-        self.max_batch_records = int(config.value_or_else('STREAM_MAX_BATCH_RECORDS', str(1000)))
-        self.max_batch_age = int(config.value_or_else('STREAM_MAX_BATCH_AGE', str(200)))
-        self.max_attempts = int(config.value_or_else('STREAM_MAX_UPLOAD_ATTEMPTS', str(10)))
+        self.max_record_size = config.int_value_or_else('STREAM_MAX_RECORD_SIZE', 1024 * 900)
+        self.max_batch_size = config.int_value_or_else('STREAM_MAX_BATCH_SIZE', 1024 * 900)
+        self.max_batch_records = config.int_value_or_else('STREAM_MAX_BATCH_RECORDS', 1000)
+        self.max_batch_age = config.int_value_or_else('STREAM_MAX_BATCH_AGE', 200)
+        self.max_attempts = config.int_value_or_else('STREAM_MAX_UPLOAD_ATTEMPTS', 10)
         self.compressed_records = []
-        self.send_time = 0
+        self.send_time = round(time.time() * 1000)
 
     def write(self, payload: Payload):
         compressed_payload = self.compress_rec(payload)
@@ -65,7 +65,7 @@ class Kinesis(LeoStream):
                 self.log_failures(result)
 
         self.compressed_records.clear()
-        self.send_time = time.time()
+        self.send_time = round(time.time() * 1000)
 
     def send_current(self, attempts: int) -> {}:
         try:
@@ -88,9 +88,8 @@ class Kinesis(LeoStream):
         return batch_size + compressed_payload_size > self.max_batch_size
 
     def exceeds_batch_age(self) -> bool:
-        last_send = round(self.send_time * 1000)
         now = round(time.time() * 1000)
-        return last_send + self.max_batch_age < now
+        return now - self.send_time > self.max_batch_age
 
     def exceeds_batch_records(self) -> bool:
         return len(self.compressed_records) >= self.max_batch_records
@@ -122,6 +121,8 @@ class Kinesis(LeoStream):
     @staticmethod
     def log_failures(result: {}):
         recs = result.get('Records')
+        if not recs:
+            return
         for i in recs:
             code = recs[i].get('ErrorCode')
             if code:
