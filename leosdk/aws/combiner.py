@@ -1,25 +1,30 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 class Combiner:
 
     def __init__(self):
-        print("combiner!")
+        logger.info("combiner!")
 
     def reset(self):
-        print("reset!")
+        logger.info("reset!")
 
     def reset_current(self):
-        print("reset_current!")
+        logger.info("reset_current!")
 
     def reset_batch(self):
-        print("reset batch!")
+        logger.info("reset batch!")
 
     def add_current_record(self):
-        print("add current record!")
+        logger.info("add current record!")
 
     def submit_batch(self):
-        print("submit batch!")
+        logger.info("submit batch!")
 
     def write(self):
-        print("write!")
+        logger.info("write!")
 
     def end(self):
-        print("end!")
+        logger.info("end!")

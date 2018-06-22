@@ -1,6 +1,10 @@
+import logging
+
 from leosdk.aws.cfg import Cfg
 from leosdk.aws.leo_stream import LeoStream
 from leosdk.aws.payload import Payload
+
+logger = logging.getLogger(__name__)
 
 
 class S3(LeoStream):
@@ -18,4 +22,4 @@ class S3(LeoStream):
     def end(self):
         # if len(self.records) > 0:
         #     self.send_records()
-        print('end')
+        logger.info('End S3 stream')

@@ -1,14 +1,17 @@
 import gzip
+import logging
 import sys
 import time
-from typing import List
 
 import boto3
 from boto3 import Session
+from botocore.exceptions import ClientError
 
 from leosdk.aws.cfg import Cfg
 from leosdk.aws.leo_stream import LeoStream
 from leosdk.aws.payload import Payload
+
+logger = logging.getLogger(__name__)
 
 
 class Kinesis(LeoStream):
@@ -17,7 +20,7 @@ class Kinesis(LeoStream):
     max_batch_records: int
     max_batch_age: int
     max_attempts: int
-    compressed_records: List[dict]
+    compressed_records: [dict]
 
     def __init__(self, config: Cfg, bot_id: str, queue_name: str):
         self.stream_name = config.value('STREAM')
@@ -48,12 +51,12 @@ class Kinesis(LeoStream):
 
     def end(self):
         self.send()
-        print('end')
+        logger.info('End Kinesis stream')
 
     def send(self):
         attempts = 0
         while len(self.compressed_records) > 0:
-            result = self.send_current()
+            result = self.send_current(attempts)
             attempts += 1
             if result.get('FailedRecordCount') == 0 or attempts >= self.max_attempts:
                 self.log_successes()
@@ -64,11 +67,15 @@ class Kinesis(LeoStream):
         self.compressed_records.clear()
         self.send_time = time.time()
 
-    def send_current(self) -> {}:
-        return self.client.put_records(
-            Records=self.compressed_records,
-            StreamName=self.stream_name
-        )
+    def send_current(self, attempts: int) -> {}:
+        try:
+            time.sleep(attempts * .1)
+            return self.client.put_records(
+                Records=self.compressed_records,
+                StreamName=self.stream_name
+            )
+        except ClientError:
+            return {'FailedRecordCount': len(self.compressed_records)}
 
     def send_required(self, size: int) -> bool:
         return self.exceeds_batch_size(size) or self.exceeds_batch_age() or self.exceeds_batch_records()
@@ -94,7 +101,9 @@ class Kinesis(LeoStream):
     def log_successes(self):
         uploaded = len(self.compressed_records)
         batch_size = sys.getsizeof(self.compressed_records)
-        print("Uploaded %d compressed payloads to Kinesis with a total of %d bytes" % (uploaded, batch_size))
+        plural = 's' if uploaded > 1 else ''
+        logger.debug('Uploaded %d compressed payload%s to Kinesis with a total of %d bytes',
+                     uploaded, plural, batch_size)
 
     def compress_rec(self, payload: Payload) -> {}:
         payload.set_id(self.bot_id)
@@ -118,4 +127,4 @@ class Kinesis(LeoStream):
             if code:
                 seq = recs[i].get('SequenceNumber')
                 msg = recs[i].get('ErrorMessage')
-                print("Error %s sending record with sequence %s: %s" % (code, seq, msg))
+                logger.warning("Error %s sending record with sequence %s: %s" % (code, seq, msg))

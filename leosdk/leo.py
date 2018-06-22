@@ -1,3 +1,5 @@
+import logging
+
 import boto3
 from boto3 import Session
 
@@ -6,8 +8,10 @@ from leosdk.aws.leo_stream import LeoStream
 
 
 class Leo:
+
     def __init__(self, leo_config, bot_id: str, queue_name: str):
         self.config = Cfg(leo_config)
+        self.log_handler(logging.NullHandler())
         self.bot_id = bot_id
         self.queue_name = queue_name
 
@@ -18,13 +22,24 @@ class Leo:
         writer_style = Leo.__writer_style(self.config)
         if writer_style == 'BATCH':
             from leosdk.aws.firehose import Firehose
-            return Firehose(self.config)
+            return Firehose(self.config, self.bot_id, self.queue_name)
         elif writer_style == 'STORAGE':
             from leosdk.aws.s3 import S3
-            return S3(self.config)
+            return S3(self.config, self.bot_id, self.queue_name)
         else:
             from leosdk.aws.kinesis import Kinesis
             return Kinesis(self.config, self.bot_id, self.queue_name)
+
+    def log_handler(self, custom_handler):
+        logger = logging.getLogger(self.config.value_or_else('LOG_NAME', 'leosdk'))
+        default_level = self.config.value_or_else('LOG_LEVEL', 'INFO')
+        logger.setLevel(default_level)
+        handler = custom_handler
+        handler.setLevel(default_level)
+        default_format = '%(asctime)s %(name)s [%(levelname)s] %(message)s'
+        formatter = logging.Formatter(self.config.value_or_else('LOG_FORMAT', default_format))
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     @staticmethod
     def __aws_session(config) -> Session:
