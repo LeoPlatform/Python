@@ -34,9 +34,9 @@ class Payload:
 
     def set_payload(self, name, ids):
         if name in self.payloadObj:
-            self.payloadObj[name] += ids
+            self.payloadObj[name] += self.get_payload_obj(ids)
         else:
-            self.payloadObj[name] = ids
+            self.payloadObj[name] = self.get_payload_obj(ids)
 
     def get_payload(self, name=''):
         if not name:
@@ -91,6 +91,15 @@ class Payload:
 
     def get_event(self) -> str:
         return self.event
+
+    @staticmethod
+    def get_payload_obj(payload) -> {}:
+        if type(payload) is dict:
+            return payload
+        if type(payload) is str:
+            return json.loads(payload)
+
+        raise ValueError("Payload must be an object or pre-encoded JSON")
 
     def set_event_source_timestamp(self, event_source_timestamp: int):
         self.eventSourceTimestamp = event_source_timestamp if event_source_timestamp else self.now

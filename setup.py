@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="leosdk",
-    version="0.0.2",
+    version="0.0.4",
     author="Monty Charlton",
     license="MIT",
     author_email="mcharlton@leoinsights.com",
