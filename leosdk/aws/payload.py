@@ -18,6 +18,9 @@ class Payload:
 
     def get_payload_data(self):
         return json.dumps({
+            'event': self.get_event(),
+            'id': self.get_id(),
+            'eid': self.get_eid(),
             'payload': self.get_payload(),
             'correlation_id': {
                 'source': self.get_source(),
@@ -25,24 +28,21 @@ class Payload:
                 'units': self.get_units(),
                 'end': self.get_end(),
             },
-            'eid': self.get_eid(),
-            'id': self.get_id(),
-            'event': self.get_event(),
             'event_source_timestamp': self.get_event_source_timestamp(),
             'timestamp': self.now
         }, separators=(',', ':')) + '\n'
 
-    def set_payload(self, name, ids):
+    def set_payload(self, name, payload):
         if name in self.payloadObj:
-            self.payloadObj[name] += self.get_payload_obj(ids)
+            self.payloadObj[name] += self.get_payload_obj(payload)
         else:
-            self.payloadObj[name] = self.get_payload_obj(ids)
+            self.payloadObj = self.get_payload_obj(payload)
+
+    def set(self, payload):
+        self.set_payload('', payload)
 
     def get_payload(self, name=''):
-        if not name:
-            return self.payloadObj
-        else:
-            return self.payloadObj[name] if name else self.payloadObj
+        return self.payloadObj[name] if name else self.payloadObj
 
     def set_start(self, start: int):
         self.start = start
